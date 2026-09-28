@@ -1,0 +1,122 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Gemini FastAPI Multi-Account",
+        "data": {
+          "server_name": "Server name",
+          "base_url": "Server URL (root or /v1)",
+          "api_key": "API key (optional if server auth is disabled)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not communicate with the server",
+      "unknown": "An unknown error occurred",
+      "invalid_url": "Enter a valid http:// or https:// server URL",
+      "invalid_auth": "Invalid API key"
+    },
+    "abort": {
+      "already_configured": "Already configured"
+    }
+  },
+  "config_subentries": {
+    "conversation": {
+      "step": {
+        "user": {
+          "title": "Configure the new conversation agent",
+          "data": {
+            "model": "Model",
+            "prompt": "System Prompt",
+            "llm_hass_api": "Tool Providers",
+            "strip_emojis": "Strip emojis from the response",
+            "strip_emphasis": "Strip Markdown emphasis markers from the response",
+            "strip_latex": "Strip LaTeX commands from the response",
+            "temperature": "Temperature",
+            "manual_prompting": "Full manual prompting",
+            "parallel_tool_calls": "Parallel tool calling"
+          },
+          "data_description": {
+            "model": "The model to use for the conversation agent",
+            "prompt": "Instruct how the LLM should respond. This can be a template."
+          }
+        },
+        "reconfigure": {
+          "title": "Reconfigure the conversation agent",
+          "data": {
+            "model": "Model",
+            "prompt": "System Prompt",
+            "llm_hass_api": "Tool Providers",
+            "strip_emojis": "Strip emojis from the response",
+            "strip_emphasis": "Strip Markdown emphasis markers from the response",
+            "strip_latex": "Strip LaTeX commands from the response",
+            "temperature": "Temperature",
+            "manual_prompting": "Full manual prompting",
+            "parallel_tool_calls": "Parallel tool calling"
+          },
+          "data_description": {
+            "model": "The model to use for the conversation agent",
+            "prompt": "Instruct how the LLM should respond. This can be a template."
+          }
+        }
+      },
+      "initiate_flow": {
+        "user": "Add conversation agent"
+      },
+      "entry_type": "Conversation agent",
+      "abort": {
+        "cannot_connect": "Could not communicate with the server",
+        "unknown": "An unknown error occurred",
+        "reconfigure_successful": "Conversation Agent has been reconfigured"
+      }
+    },
+    "ai_task_data": {
+      "step": {
+        "user": {
+          "title": "Configure the new AI task agent",
+          "data": {
+            "model": "Model",
+            "generate_data": "Generate data based on instructions",
+            "generate_image": "Generate images based on instructions",
+            "support_attachments": "Support attachments with generate data",
+            "strip_emojis": "Strip emojis from the response",
+            "strip_emphasis": "Strip Markdown emphasis markers from the response",
+            "strip_latex": "Strip LaTeX commands from the response",
+            "temperature": "Temperature"
+          },
+          "data_description": {
+            "model": "The model to use for the AI Task agent"
+          }
+        },
+        "reconfigure": {
+          "title": "Reconfigure the AI task agent",
+          "data": {
+            "model": "Model",
+            "generate_data": "Generate data based on instructions",
+            "generate_image": "Generate images based on instructions",
+            "support_attachments": "Support attachments with generate data",
+            "strip_emojis": "Strip emojis from the response",
+            "strip_emphasis": "Strip Markdown emphasis markers from the response",
+            "strip_latex": "Strip LaTeX commands from the response",
+            "temperature": "Temperature"
+          },
+          "data_description": {
+            "model": "The model to use for the AI Task agent"
+          }
+        }
+      },
+      "initiate_flow": {
+        "user": "Add AI task"
+      },
+      "entry_type": "AI task",
+      "abort": {
+        "cannot_connect": "Could not communicate with the server",
+        "unknown": "An unknown error occurred",
+        "reconfigure_successful": "AI Task Agent has been reconfigured"
+      }
+    }
+  },
+  "exceptions": {
+    "unsupported_attachment_type": "This model does not support the attached file type."
+  }
+}

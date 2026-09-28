@@ -1,0 +1,7 @@
+{
+  "name": "Gemini FastAPI Multi-Account",
+  "hide_default_branch": false,
+  "homeassistant": "2025.7.0",
+  "hacs": "2.0.5",
+  "render_readme": true
+}

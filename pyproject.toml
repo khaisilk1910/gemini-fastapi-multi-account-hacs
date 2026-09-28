@@ -1,0 +1,18 @@
+[project]
+name = "gemini-fastapi-multi-account-hacs"
+version = "1.0.0"
+description = "Home Assistant HACS integration for Gemini FastAPI Multi-Account"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["openai==3.10.0", "pylatexenc==2.11"]
+
+[project.urls]
+Repository = "https://github.com/khaisilk1910/gemini-fastapi-multi-account-hacs"
+Issues = "https://github.com/khaisilk1910/gemini-fastapi-multi-account-hacs/issues"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["B", "C4", "E", "F", "I", "LOG", "PIE", "RUF", "SIM", "UP", "W"]

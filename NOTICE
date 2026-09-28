@@ -1,0 +1,12 @@
+Gemini FastAPI Multi-Account HACS
+
+This project is a modified derivative of hass_local_openai_llm, originally
+published by skye-harris and later maintained/forked by contributors including
+luuquangvu, under the Apache License 2.0.
+
+Upstream projects:
+- https://github.com/skye-harris/hass_local_openai_llm
+- https://github.com/luuquangvu/hass_local_openai_llm
+
+The separate Gemini FastAPI Multi-Account server is distributed under its own
+license and is not incorporated into this HACS integration repository.

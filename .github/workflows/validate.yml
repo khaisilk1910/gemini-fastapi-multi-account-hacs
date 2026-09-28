@@ -1,0 +1,20 @@
+name: Validate
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Hassfest
+        uses: home-assistant/actions/hassfest@master
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Python syntax check
+        run: python -m compileall -q custom_components
