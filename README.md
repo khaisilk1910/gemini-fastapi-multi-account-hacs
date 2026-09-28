@@ -4,12 +4,6 @@
   <img src="custom_components/gemini_fastapi_multi_account/brand/icon.png" alt="Gemini FastAPI Multi-Account" width="250" height="250">
 </p>
 
-Tích hợp HACS cho Home Assistant, tối ưu riêng để kết nối với container **gemini-fastapi-multi-account** qua API OpenAI-compatible (`/v1`).
-
-Repo HACS: `gemini-fastapi-multi-account-hacs`  
-Home Assistant domain: `gemini_fastapi_multi_account`
-
-Icon tích hợp được đóng gói tại `custom_components/gemini_fastapi_multi_account/brand/icon.png` (250×250 PNG). Home Assistant 2026.3+ sẽ tự dùng brand image cục bộ này; bản HA cũ hơn vẫn chạy integration nhưng có thể không hiển thị icon cục bộ.
 
 ## Yêu cầu
 
@@ -37,7 +31,22 @@ Không dùng `127.0.0.1:8000` từ Home Assistant Container trừ khi API thực
 
 API key trong integration phải khớp với `CONFIG_SERVER__API_KEY` của container. Nếu server để `api_key: null`/không bật xác thực, có thể để trống ô API key.
 
-## Cài bằng HACS Custom Repository
+
+## Cài đặt qua HACS
+
+Nhấn nút dưới đây để mở trực tiếp repository này trong HACS:
+
+[![Mở repository trong HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=khaisilk1910&repository=gemini-fastapi-multi-account-hacs&category=integration)
+
+Sau đó:
+
+1. Chọn **Download** trong HACS để cài đặt tích hợp.
+2. Khởi động lại Home Assistant.
+3. Vào **Settings → Devices & services → Add integration**.
+4. Tìm **YouTube-DLP** và hoàn tất cấu hình theo giao diện.
+
+
+### Cài bằng HACS Custom Repository
 
 1. Push repo này lên GitHub.
 2. Vào **HACS → Integrations → dấu ba chấm → Custom repositories**.

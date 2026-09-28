@@ -1,5 +1,13 @@
 # Changelog
 
+
+## 1.0.3
+
+- Fix Hassfest manifest key ordering.
+- Fix Home Assistant exception translation schema for `unsupported_attachment_type`.
+- Apply the same exception mapping format to English, Vietnamese, and source translation files.
+- No API behavior changes from 1.0.2.
+
 ## 1.0.2
 
 - Fixed config-flow 500 caused by an incompatible OpenAI SDK pin.

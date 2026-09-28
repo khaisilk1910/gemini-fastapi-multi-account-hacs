@@ -13,12 +13,12 @@
     "conversation"
   ],
   "documentation": "https://github.com/khaisilk1910/gemini-fastapi-multi-account-hacs",
-  "issue_tracker": "https://github.com/khaisilk1910/gemini-fastapi-multi-account-hacs/issues",
   "integration_type": "service",
   "iot_class": "local_push",
+  "issue_tracker": "https://github.com/khaisilk1910/gemini-fastapi-multi-account-hacs/issues",
   "requirements": [
     "openai>=2.45.0,<3",
     "pylatexenc>=2.11,<3"
   ],
-  "version": "1.0.2"
+  "version": "1.0.3"
 }
