@@ -5,6 +5,20 @@ Tích hợp HACS cho Home Assistant, tối ưu riêng để kết nối với co
 Repo HACS: `gemini-fastapi-multi-account-hacs`  
 Home Assistant domain: `gemini_fastapi_multi_account`
 
+
+## Cài đặt qua HACS
+
+Nhấn nút dưới đây để mở trực tiếp repository này trong HACS:
+
+[![Mở repository trong HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=khaisilk1910&repository=gemini-fastapi-multi-account-hacs&category=integration)
+
+Sau đó:
+
+1. Chọn **Download** trong HACS để cài đặt tích hợp.
+2. Khởi động lại Home Assistant.
+3. Vào **Settings → Devices & services → Add integration**.
+4. Tìm **gemini-fastapi-multi-account-hacs** và hoàn tất cấu hình theo giao diện.
+
 ## Mục tiêu của bản này
 
 - Không gọi API mạng trong `async_setup_entry`, vì vậy container Gemini đang tắt/chậm không giữ quá trình khởi động Home Assistant chờ timeout.
