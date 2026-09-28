@@ -3,15 +3,9 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import voluptuous as vol
-else:
-    try:
-        import probatio as vol
-    except ImportError:
-        import voluptuous as vol
+import openai
+import voluptuous as vol
 
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -38,14 +32,13 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     TemplateSelector,
 )
-from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError, OpenAIError
 
 from .api import create_client, normalize_base_url
 from .const import (
     DOMAIN,
     LOGGER,
-    RECOMMENDED_CONVERSATION_OPTIONS,
     MODEL_LIST_TIMEOUT,
+    RECOMMENDED_CONVERSATION_OPTIONS,
     LocalAiConfigKey,
     LocalAiSubentryType,
 )
@@ -71,7 +64,7 @@ class LocalAiConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, object] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial config flow step."""
-        LOGGER.debug("Config flow: step_user, input: %s", user_input)
+        LOGGER.debug("Config flow: step_user invoked")
         errors = {}
         if user_input is not None:
             user_input = user_input.copy()
@@ -90,15 +83,19 @@ class LocalAiConfigFlow(ConfigFlow, domain=DOMAIN):
                 try:
                     client = create_client(self.hass, user_input)
                     await client.models.list(timeout=MODEL_LIST_TIMEOUT)
-                except AuthenticationError:
+                except openai.AuthenticationError:
                     errors["base"] = "invalid_auth"
-                except APIStatusError as err:
+                except openai.APIStatusError as err:
                     errors["base"] = (
                         "invalid_auth"
                         if err.status_code in (401, 403)
                         else "cannot_connect"
                     )
-                except (APIConnectionError, APITimeoutError, OpenAIError) as err:
+                except (
+                    openai.APIConnectionError,
+                    openai.APITimeoutError,
+                    openai.OpenAIError,
+                ) as err:
                     LOGGER.debug("Gemini FastAPI validation failed: %s", err)
                     errors["base"] = "cannot_connect"
                 except Exception:
@@ -171,7 +168,7 @@ class ConversationFlowHandler(LocalAiSubentryFlowHandler):
                 for model in response.data
             ]
             LOGGER.debug("Found models: %s", downloaded_models)
-        except OpenAIError as err:
+        except openai.OpenAIError as err:
             LOGGER.debug("OpenAI-compatible API error retrieving models: %s", err)
             downloaded_models = []
         except Exception as err:
@@ -320,7 +317,7 @@ class AITaskDataFlowHandler(LocalAiSubentryFlowHandler):
                 )
                 for model in response.data
             ]
-        except OpenAIError as err:
+        except openai.OpenAIError as err:
             LOGGER.debug("OpenAI-compatible API error retrieving models: %s", err)
             downloaded_models = []
         except Exception as err:

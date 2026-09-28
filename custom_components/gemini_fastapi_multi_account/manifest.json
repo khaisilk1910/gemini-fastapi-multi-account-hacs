@@ -17,8 +17,8 @@
   "integration_type": "service",
   "iot_class": "local_push",
   "requirements": [
-    "openai==3.10.0",
-    "pylatexenc==2.11"
+    "openai>=2.45.0,<3",
+    "pylatexenc>=2.11,<3"
   ],
-  "version": "1.0.0"
+  "version": "1.0.2"
 }
