@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import openai
 
@@ -130,7 +131,16 @@ class LocalAiEntity(Entity):
         client = self.entry.runtime_data
 
         for _iteration in range(MAX_TOOL_ITERATIONS):
-            LOGGER.debug("Sending chat request to API for model: %s", self.model)
+            request_id = f"ha-{uuid4().hex}"
+            request_headers = {"X-Request-ID": request_id}
+            LOGGER.info(
+                "Gemini FastAPI request started request_id=%s model=%s iteration=%d "
+                "stream=true structured=%s",
+                request_id,
+                self.model,
+                _iteration + 1,
+                structure is not None,
+            )
             try:
                 if structure:
                     response_format = ResponseFormatJSONSchema(
@@ -149,6 +159,7 @@ class LocalAiEntity(Entity):
                             prompt_cache_key=chat_log.conversation_id,
                             response_format=response_format,
                             stream=True,
+                            extra_headers=request_headers,
                         )
                     else:
                         result_stream = await client.chat.completions.create(
@@ -159,6 +170,7 @@ class LocalAiEntity(Entity):
                             prompt_cache_key=chat_log.conversation_id,
                             response_format=response_format,
                             stream=True,
+                            extra_headers=request_headers,
                         )
                 elif tools:
                     result_stream = await client.chat.completions.create(
@@ -169,6 +181,7 @@ class LocalAiEntity(Entity):
                         parallel_tool_calls=parallel_tool_calls,
                         prompt_cache_key=chat_log.conversation_id,
                         stream=True,
+                        extra_headers=request_headers,
                     )
                 else:
                     result_stream = await client.chat.completions.create(
@@ -178,10 +191,15 @@ class LocalAiEntity(Entity):
                         parallel_tool_calls=parallel_tool_calls,
                         prompt_cache_key=chat_log.conversation_id,
                         stream=True,
+                        extra_headers=request_headers,
                     )
             except openai.OpenAIError as err:
-                LOGGER.error("Error requesting response from API: %s", err)
-                raise HomeAssistantError(f"Error talking to API: {err}") from err
+                LOGGER.error(
+                    "Error requesting response from API request_id=%s: %s", request_id, err
+                )
+                raise HomeAssistantError(
+                    f"Error talking to API (request_id={request_id}): {err}"
+                ) from err
 
             try:
                 messages.extend(
@@ -198,8 +216,19 @@ class LocalAiEntity(Entity):
                     ]
                 )
             except Exception as err:
-                LOGGER.exception("Error handling API response: %s", err)
-                raise HomeAssistantError("Error handling streamed API response") from err
+                LOGGER.exception(
+                    "Error handling API response request_id=%s: %s", request_id, err
+                )
+                raise HomeAssistantError(
+                    f"Error handling streamed API response (request_id={request_id})"
+                ) from err
+
+            LOGGER.info(
+                "Gemini FastAPI request completed request_id=%s model=%s iteration=%d",
+                request_id,
+                self.model,
+                _iteration + 1,
+            )
 
             if not chat_log.unresponded_tool_results:
                 break
@@ -218,7 +247,13 @@ class LocalAiEntity(Entity):
 
         client = self.entry.runtime_data
 
-        LOGGER.debug("Sending image generation request to API for model: %s", self.model)
+        request_id = f"ha-{uuid4().hex}"
+        request_headers = {"X-Request-ID": request_id}
+        LOGGER.info(
+            "Gemini FastAPI image request started request_id=%s model=%s",
+            request_id,
+            self.model,
+        )
         try:
             response = await client.responses.create(
                 model=self.model,
@@ -235,11 +270,21 @@ class LocalAiEntity(Entity):
                         output_format="png",
                     )
                 ],
+                extra_headers=request_headers,
             )
         except openai.OpenAIError as err:
-            LOGGER.error("Error requesting image response from API: %s", err)
-            raise HomeAssistantError(f"Error talking to API: {err}") from err
+            LOGGER.error(
+                "Error requesting image response from API request_id=%s: %s", request_id, err
+            )
+            raise HomeAssistantError(
+                f"Error talking to API (request_id={request_id}): {err}"
+            ) from err
 
+        LOGGER.info(
+            "Gemini FastAPI image request completed request_id=%s model=%s",
+            request_id,
+            self.model,
+        )
         LOGGER.debug("Received image response from API: %s", response)
         raw_text_output = getattr(response, "output_text", None)
         text_output: str | None = str(raw_text_output).strip() if raw_text_output else None
@@ -266,7 +311,9 @@ class LocalAiEntity(Entity):
                     item.result = None
 
         if image_call is None and text_output is None:
-            raise HomeAssistantError("No image response returned from API")
+            raise HomeAssistantError(
+                f"No image response returned from API (request_id={request_id})"
+            )
 
         chat_log.async_add_assistant_content_without_tools(
             conversation.AssistantContent(

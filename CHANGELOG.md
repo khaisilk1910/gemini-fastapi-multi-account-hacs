@@ -1,6 +1,14 @@
 # Changelog
 
 
+## 1.1.0
+
+- Increase OpenAI-compatible request timeout from 120s to 145s for Gemini FastAPI V4 failover headroom.
+- Generate a unique Home Assistant-side request ID for every backend chat/tool iteration and image request.
+- Send the ID as `X-Request-ID`, which Gemini FastAPI V4 reuses in backend scheduler/failover logs.
+- Add `request_id` to Home Assistant start/completion/error logs for direct cross-log correlation.
+- Keep OpenAI SDK retries disabled (`max_retries=0`); backend multi-account failover remains authoritative.
+
 ## 1.0.3
 
 - Fix Hassfest manifest key ordering.

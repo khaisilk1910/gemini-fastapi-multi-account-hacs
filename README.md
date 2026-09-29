@@ -84,3 +84,15 @@ Nếu container không bật API key thì bỏ header `Authorization`.
 Integration này là bản sửa đổi/phái sinh của `hass_local_openai_llm` và giữ giấy phép **Apache License 2.0**. Xem `LICENSE` và `NOTICE`.
 
 Container `gemini-fastapi-multi-account` là dự án riêng và giữ giấy phép riêng của container; mã server không được nhúng vào repo HACS này.
+
+
+## V4 request correlation
+
+Version 1.1.0 is tuned for Gemini FastAPI Multi-Account V4:
+
+- Client request timeout is 145 seconds.
+- Every chat/tool iteration and image request gets a unique ID such as `ha-...`.
+- The integration sends that value in the `X-Request-ID` header.
+- Gemini FastAPI V4 accepts this header and writes the same request ID into account selection, timeout, failover, first-byte, structured-output and success/failure logs.
+- Home Assistant logs request start, completion and errors with the same `request_id`.
+- SDK retries remain disabled so a Home Assistant retry cannot race with backend account failover.
