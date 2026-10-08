@@ -1,3 +1,9 @@
+## 1.3.1 (2026-10-08)
+
+- Fix SSE error propagation after HTTP 200 and detect truncated streams.
+- Use SSE content negotiation; avoid printing image payloads in debug logs.
+- Add offline HTTP transport contract tests in CI.
+
 # Changelog
 
 ## 1.3.0

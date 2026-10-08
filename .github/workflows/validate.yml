@@ -18,3 +18,7 @@ jobs:
           python-version: "3.14"
       - name: Python syntax check
         run: python -m compileall -q custom_components
+      - name: Install transport test dependencies
+        run: python -m pip install pytest httpx
+      - name: Test HTTP / SSE transport
+        run: python -m pytest -q tests/test_api_protocol.py

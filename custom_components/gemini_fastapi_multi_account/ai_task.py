@@ -115,7 +115,7 @@ class LocalAITaskEntity(
             native = getattr(content, "native", None)
             if isinstance(native, ImageGenerationResult) and native.result:
                 image_call = native
-                LOGGER.debug("ImageGenerationCall object: %s", image_call)
+                LOGGER.debug("Image result found: format=%s size=%s", image_call.output_format, image_call.size)
                 break
 
         if image_call is None or image_call.result is None:

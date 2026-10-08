@@ -160,12 +160,21 @@ class GeminiFastApiClient:
         *,
         extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        """Yield decoded SSE chunks from POST /v1/chat/completions."""
+        """Yield SSE chunks and fail loudly on upstream stream errors.
+
+        Our FastAPI gateway emits a JSON ``error`` envelope followed by
+        ``[DONE]`` when an error happens after HTTP 200 was already sent.
+        Silently ignoring that envelope made Home Assistant treat failed AI
+        tasks / incomplete tool responses as successful responses.
+        """
+        headers = self._headers(extra_headers)
+        headers["Accept"] = "text/event-stream"
+        received_done = False
         try:
             async with self._http_client.stream(
                 "POST",
                 self._url("chat/completions"),
-                headers=self._headers(extra_headers),
+                headers=headers,
                 json=payload,
                 timeout=REQUEST_TIMEOUT,
             ) as response:
@@ -177,18 +186,35 @@ class GeminiFastApiClient:
                     if not line.startswith("data:"):
                         continue
                     data = line[5:].strip()
-                    if not data or data == "[DONE]":
-                        if data == "[DONE]":
-                            break
+                    if not data:
                         continue
+                    if data == "[DONE]":
+                        received_done = True
+                        break
                     try:
                         event = json.loads(data)
                     except json.JSONDecodeError as err:
                         raise ApiClientError(
                             f"Invalid SSE JSON from Gemini FastAPI: {err}"
                         ) from err
-                    if isinstance(event, dict):
-                        yield event
+                    if not isinstance(event, dict):
+                        raise ApiClientError("Invalid SSE event: expected a JSON object")
+                    error = event.get("error")
+                    if error is not None:
+                        if isinstance(error, dict):
+                            message = str(error.get("message") or "Unknown streaming error")
+                            error_code = error.get("code") or error.get("type")
+                            detail = (
+                                f"{error_code}: {message}" if error_code else message
+                            )
+                        else:
+                            detail = str(error)
+                        raise ApiClientError(f"Gemini FastAPI stream error: {detail}")
+                    yield event
+            if not received_done:
+                raise ApiClientError(
+                    "Gemini FastAPI stream ended without [DONE] (incomplete response)"
+                )
         except ApiClientError:
             raise
         except httpx.HTTPError as err:

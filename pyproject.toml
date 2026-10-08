@@ -1,6 +1,6 @@
 [project]
 name = "gemini-fastapi-multi-account-hacs"
-version = "1.3.0"
+version = "1.3.1"
 description = "Home Assistant HACS integration for Gemini FastAPI Multi-Account"
 readme = "README.md"
 requires-python = ">=3.13"

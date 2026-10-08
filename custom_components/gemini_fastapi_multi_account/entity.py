@@ -250,7 +250,7 @@ class LocalAiEntity(Entity):
             request_id,
             self.model,
         )
-        LOGGER.debug("Received image response from API: %s", response)
+        LOGGER.debug("Image response received; fields=%s", list(response))
         text_output = extract_response_output_text(response)
 
         LOGGER.debug("Extracted text_output before filtering: %s", text_output)

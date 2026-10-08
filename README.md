@@ -114,3 +114,11 @@ Version 1.1.0 is tuned for Gemini FastAPI Multi-Account V4:
 - Gemini FastAPI V4 accepts this header and writes the same request ID into account selection, timeout, failover, first-byte, structured-output and success/failure logs.
 - Home Assistant logs request start, completion and errors with the same `request_id`.
 - SDK retries remain disabled so a Home Assistant retry cannot race with backend account failover.
+
+
+### SSE compatibility (v1.3.1)
+
+The native HTTPX client raises errors if the backend returns a stream-level error
+frame or closes its SSE stream before `[DONE]`. HTTP health/model requests and
+initialization remain independent: Home Assistant starts without contacting the
+Gemini gateway.
