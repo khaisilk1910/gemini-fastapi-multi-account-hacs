@@ -1,10 +1,10 @@
 [project]
 name = "gemini-fastapi-multi-account-hacs"
-version = "1.1.0"
+version = "1.2.1"
 description = "Home Assistant HACS integration for Gemini FastAPI Multi-Account"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = ["openai>=2.45.0,<3", "pylatexenc>=2.11,<3"]
+dependencies = ["openai>=2.45.0,<4", "pylatexenc>=2.11,<3"]
 
 [project.urls]
 Repository = "https://github.com/khaisilk1910/gemini-fastapi-multi-account-hacs"

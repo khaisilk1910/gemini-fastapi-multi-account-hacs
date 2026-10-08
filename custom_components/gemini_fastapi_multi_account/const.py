@@ -8,6 +8,7 @@ from homeassistant.const import CONF_LLM_HASS_API, CONF_PROMPT
 from homeassistant.helpers import llm
 
 DOMAIN = "gemini_fastapi_multi_account"
+SERVICE_RELOAD = "reload"
 LOGGER = logging.getLogger(__package__)
 
 

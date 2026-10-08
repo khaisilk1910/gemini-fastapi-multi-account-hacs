@@ -120,5 +120,18 @@
     "unsupported_attachment_type": {
       "message": "Mô hình không hỗ trợ loại tệp đính kèm này."
     }
+  },
+  "entity": {
+    "button": {
+      "reload_integration": {
+        "name": "Tải lại tích hợp"
+      }
+    }
+  },
+  "services": {
+    "reload": {
+      "name": "Tải lại tích hợp",
+      "description": "Tải lại tất cả cấu hình Gemini FastAPI Multi-Account đang bật, kể cả cấu hình hiện ở trạng thái Not loaded."
+    }
   }
 }

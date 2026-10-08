@@ -43,7 +43,7 @@ Sau đó:
 1. Chọn **Download** trong HACS để cài đặt tích hợp.
 2. Khởi động lại Home Assistant.
 3. Vào **Settings → Devices & services → Add integration**.
-4. Tìm **YouTube-DLP** và hoàn tất cấu hình theo giao diện.
+4. Tìm **Gemini FastAPI Multi-Account** và hoàn tất cấu hình theo giao diện.
 
 
 ### Cài bằng HACS Custom Repository
@@ -65,6 +65,22 @@ https://github.com/khaisilk1910/gemini-fastapi-multi-account-hacs
 10. Thêm Conversation Agent và/hoặc AI Task subentry, chọn model từ `/v1/models`.
 
 Việc kiểm tra `/v1/models` chỉ diễn ra khi cấu hình/mở form chọn model, không chạy trong quá trình boot Home Assistant.
+
+### Tương thích Home Assistant / OpenAI SDK
+
+Từ version **1.2.1**, integration khai báo `openai>=2.45.0,<4`. Mục tiêu là để Home Assistant Core tự áp dụng phiên bản OpenAI SDK mà chính Core đang khóa (ví dụ Home Assistant 2026.10 dùng OpenAI SDK 3.x), tránh lỗi `Requirements ... not found` do custom integration ép một major version không tương thích.
+
+
+## Tải lại integration
+
+Từ version 1.2.0, integration cung cấp hai cách tải lại an toàn:
+
+- Khi config entry đang **Loaded**, mở integration → **Entities** và bấm entity nút **Tải lại tích hợp / Reload integration**.
+- Nếu config entry đang **Not loaded** nên button entity chưa tồn tại, vào **Developer Tools → Actions** và chạy action `gemini_fastapi_multi_account.reload`. Action này được đăng ký ở cấp integration nên có thể yêu cầu Home Assistant nạp lại cả config entry đang `Not loaded`.
+
+Home Assistant không cho custom integration chèn nút tùy ý trực tiếp vào card ở trang **Settings → Devices & services → Integrations**, vì vậy nút được triển khai đúng chuẩn dưới dạng `button` entity, kèm action quản trị để xử lý cả trạng thái `Not loaded`.
+
+Cả hai cách đều dùng `async_schedule_reload()` của Home Assistant để tránh race với setup retry.
 
 
 ## Kiểm tra nhanh API trước khi thêm integration

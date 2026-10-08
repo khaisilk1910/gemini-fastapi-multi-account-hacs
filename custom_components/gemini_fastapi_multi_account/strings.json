@@ -120,5 +120,18 @@
     "unsupported_attachment_type": {
       "message": "This model does not support the attached file type."
     }
+  },
+  "entity": {
+    "button": {
+      "reload_integration": {
+        "name": "Reload integration"
+      }
+    }
+  },
+  "services": {
+    "reload": {
+      "name": "Reload integration",
+      "description": "Reloads all enabled Gemini FastAPI Multi-Account config entries, including entries currently in the Not loaded state."
+    }
   }
 }
