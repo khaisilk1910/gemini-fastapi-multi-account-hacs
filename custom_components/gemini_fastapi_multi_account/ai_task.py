@@ -11,9 +11,9 @@ from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from openai.types.responses.response_output_item import ImageGenerationCall
 
 from . import LocalAiConfigEntry
+from .api import ImageGenerationResult
 from .const import (
     LOGGER,
     LocalAiConfigKey,
@@ -108,12 +108,12 @@ class LocalAITaskEntity(
         if not isinstance(chat_log.content[-1], conversation.AssistantContent):
             raise HomeAssistantError("Last content in chat log is not an AssistantContent")
 
-        image_call: ImageGenerationCall | None = None
+        image_call: ImageGenerationResult | None = None
         for content in reversed(chat_log.content):
             if not isinstance(content, conversation.AssistantContent):
                 break
             native = getattr(content, "native", None)
-            if isinstance(native, ImageGenerationCall) and native.result:
+            if isinstance(native, ImageGenerationResult) and native.result:
                 image_call = native
                 LOGGER.debug("ImageGenerationCall object: %s", image_call)
                 break

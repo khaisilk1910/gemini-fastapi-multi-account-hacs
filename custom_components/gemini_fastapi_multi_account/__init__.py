@@ -1,8 +1,6 @@
 """The Gemini FastAPI Multi-Account integration."""
 from __future__ import annotations
 
-from typing import Any
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -10,11 +8,11 @@ from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
 from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.typing import ConfigType
 
-from .api import create_client
+from .api import GeminiFastApiClient, create_client
 from .const import DOMAIN, LOGGER, SERVICE_RELOAD
 
 PLATFORMS = [Platform.AI_TASK, Platform.BUTTON, Platform.CONVERSATION]
-type LocalAiConfigEntry = ConfigEntry[Any]
+type LocalAiConfigEntry = ConfigEntry[GeminiFastApiClient]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

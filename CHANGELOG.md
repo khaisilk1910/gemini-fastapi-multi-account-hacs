@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0
+
+- Remove the OpenAI Python SDK dependency entirely. The integration now talks directly to the OpenAI-compatible Gemini FastAPI endpoints with Home Assistant's shared HTTPX client.
+- Avoid future Home Assistant/OpenAI SDK package-constraint conflicts such as the HA 2026.10 `openai==3.10.0` conflict.
+- Target Home Assistant 2026.10+ and keep the current Conversation `ChatLog`, AI Task, config-subentry, runtime-data, reload action and streaming behavior.
+- Add an integration-owned SSE decoder and JSON response parser for `/v1/chat/completions`, `/v1/models` and `/v1/responses`.
+- Keep backend retry/failover authoritative; the HACS integration still performs no SDK-level retries.
+- Use Home Assistant 2026.10 `probatio` directly and migrate tool-result handling to `ToolResultContent.result.data` instead of the deprecated compatibility property.
+
 ## 1.2.1
 
 - Fix Home Assistant 2026.10 startup failure caused by the integration requirement `openai>=2.45.0,<3` conflicting with Home Assistant Core's `openai==3.10.0` package constraint.

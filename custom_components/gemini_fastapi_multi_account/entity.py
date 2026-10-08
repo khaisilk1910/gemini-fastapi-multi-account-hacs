@@ -1,19 +1,10 @@
-"""Base entity for Local OpenAI."""
+"""Base entity for Gemini FastAPI Multi-Account."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from uuid import uuid4
 
-import openai
-
-if TYPE_CHECKING:
-    import voluptuous as vol
-else:
-    try:
-        import probatio as vol
-    except ImportError:
-        import voluptuous as vol
+import probatio as vol
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigSubentry
@@ -21,17 +12,9 @@ from homeassistant.const import CONF_MODEL, CONF_PROMPT
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import Entity
-from openai.types.chat import (
-    ChatCompletionFunctionToolParam,
-    ChatCompletionMessageParam,
-    ChatCompletionSystemMessageParam,
-)
-from openai.types.responses import ToolChoiceTypesParam
-from openai.types.responses.response_output_item import ImageGenerationCall
-from openai.types.responses.tool_param import ImageGeneration
-from openai.types.shared_params import ResponseFormatJSONSchema
 
 from . import LocalAiConfigEntry
+from .api import ApiClientError, ImageGenerationResult, extract_response_output_text
 from .const import DOMAIN, LOGGER, MAX_TOOL_ITERATIONS, LocalAiConfigKey
 from .helpers import (
     _convert_completion_messages_to_response_input,
@@ -42,12 +25,13 @@ from .helpers import (
     _strip_emojis,
     _strip_emphasis_markers,
     _transform_stream,
+    ChatCompletionMessage,
 )
 from .prompt import format_custom_prompt
 
 
 class LocalAiEntity(Entity):
-    """Base entity for Local OpenAI."""
+    """Base entity for Gemini FastAPI Multi-Account."""
 
     _attr_has_entity_name = True
 
@@ -89,14 +73,14 @@ class LocalAiEntity(Entity):
         temperature = float(raw_temp) if isinstance(raw_temp, int | float) else 1.0
         parallel_tool_calls = bool(options.get(LocalAiConfigKey.PARALLEL_TOOL_CALLS, True))
 
-        tools: list[ChatCompletionFunctionToolParam] | None = None
+        tools: list[dict[str, object]] | None = None
         if chat_log.llm_api:
             tools = [
                 _format_tool(tool, chat_log.llm_api.custom_serializer)
                 for tool in sorted(chat_log.llm_api.tools, key=lambda tool: tool.name)
             ]
 
-        messages: list[ChatCompletionMessageParam] = [
+        messages: list[ChatCompletionMessage] = [
             m
             for content in chat_log.content
             if (m := await _convert_content_to_chat_message(content, self.model)) is not None
@@ -106,7 +90,7 @@ class LocalAiEntity(Entity):
             prompt = format_custom_prompt(
                 self.hass, str(options.get(CONF_PROMPT, "")), user_input, tools
             ).strip()
-            new_system_message = ChatCompletionSystemMessageParam(role="system", content=prompt)
+            new_system_message: ChatCompletionMessage = {"role": "system", "content": prompt}
             found = False
             for i, msg in enumerate(messages):
                 if msg["role"] == "system":
@@ -141,59 +125,28 @@ class LocalAiEntity(Entity):
                 _iteration + 1,
                 structure is not None,
             )
+            payload: dict[str, object] = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "parallel_tool_calls": parallel_tool_calls,
+                "prompt_cache_key": chat_log.conversation_id,
+                "stream": True,
+            }
+            if tools:
+                payload["tools"] = tools
+            if structure:
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": _format_structured_output(
+                        structure_name or "response", structure, chat_log.llm_api
+                    ),
+                }
             try:
-                if structure:
-                    response_format = ResponseFormatJSONSchema(
-                        type="json_schema",
-                        json_schema=_format_structured_output(
-                            structure_name or "response", structure, chat_log.llm_api
-                        ),
-                    )
-                    if tools:
-                        result_stream = await client.chat.completions.create(
-                            model=self.model,
-                            messages=messages,
-                            tools=tools,
-                            temperature=temperature,
-                            parallel_tool_calls=parallel_tool_calls,
-                            prompt_cache_key=chat_log.conversation_id,
-                            response_format=response_format,
-                            stream=True,
-                            extra_headers=request_headers,
-                        )
-                    else:
-                        result_stream = await client.chat.completions.create(
-                            model=self.model,
-                            messages=messages,
-                            temperature=temperature,
-                            parallel_tool_calls=parallel_tool_calls,
-                            prompt_cache_key=chat_log.conversation_id,
-                            response_format=response_format,
-                            stream=True,
-                            extra_headers=request_headers,
-                        )
-                elif tools:
-                    result_stream = await client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        tools=tools,
-                        temperature=temperature,
-                        parallel_tool_calls=parallel_tool_calls,
-                        prompt_cache_key=chat_log.conversation_id,
-                        stream=True,
-                        extra_headers=request_headers,
-                    )
-                else:
-                    result_stream = await client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        temperature=temperature,
-                        parallel_tool_calls=parallel_tool_calls,
-                        prompt_cache_key=chat_log.conversation_id,
-                        stream=True,
-                        extra_headers=request_headers,
-                    )
-            except openai.OpenAIError as err:
+                result_stream = client.chat_completions_stream(
+                    payload, extra_headers=request_headers
+                )
+            except ApiClientError as err:
                 LOGGER.error(
                     "Error requesting response from API request_id=%s: %s", request_id, err
                 )
@@ -215,6 +168,16 @@ class LocalAiEntity(Entity):
                         is not None
                     ]
                 )
+            except ApiClientError as err:
+                LOGGER.error(
+                    "Gemini FastAPI stream failed request_id=%s status_code=%s: %s",
+                    request_id,
+                    err.status_code,
+                    err,
+                )
+                raise HomeAssistantError(
+                    f"Error talking to API (request_id={request_id}): {err}"
+                ) from err
             except Exception as err:
                 LOGGER.exception(
                     "Error handling API response request_id=%s: %s", request_id, err
@@ -236,7 +199,7 @@ class LocalAiEntity(Entity):
     async def _async_handle_image_response(
         self,
         chat_log: conversation.ChatLog,
-        messages: list[ChatCompletionMessageParam],
+        messages: list[ChatCompletionMessage],
         strip_emojis: bool,
         strip_emphasis: bool,
         strip_latex: bool,
@@ -255,24 +218,26 @@ class LocalAiEntity(Entity):
             self.model,
         )
         try:
-            response = await client.responses.create(
-                model=self.model,
-                input=response_input,
-                prompt_cache_key=chat_log.conversation_id,
-                temperature=temperature,
-                stream=False,
-                store=True,
-                tool_choice=ToolChoiceTypesParam(type="image_generation"),
-                tools=[
-                    ImageGeneration(
-                        type="image_generation",
-                        model=self.model,
-                        output_format="png",
-                    )
-                ],
+            response = await client.create_response(
+                {
+                    "model": self.model,
+                    "input": response_input,
+                    "prompt_cache_key": chat_log.conversation_id,
+                    "temperature": temperature,
+                    "stream": False,
+                    "store": True,
+                    "tool_choice": {"type": "image_generation"},
+                    "tools": [
+                        {
+                            "type": "image_generation",
+                            "model": self.model,
+                            "output_format": "png",
+                        }
+                    ],
+                },
                 extra_headers=request_headers,
             )
-        except openai.OpenAIError as err:
+        except ApiClientError as err:
             LOGGER.error(
                 "Error requesting image response from API request_id=%s: %s", request_id, err
             )
@@ -286,8 +251,7 @@ class LocalAiEntity(Entity):
             self.model,
         )
         LOGGER.debug("Received image response from API: %s", response)
-        raw_text_output = getattr(response, "output_text", None)
-        text_output: str | None = str(raw_text_output).strip() if raw_text_output else None
+        text_output = extract_response_output_text(response)
 
         LOGGER.debug("Extracted text_output before filtering: %s", text_output)
         if strip_emojis and text_output:
@@ -302,13 +266,29 @@ class LocalAiEntity(Entity):
 
         LOGGER.debug("Final text_output after filtering: %s", text_output)
 
-        image_call: ImageGenerationCall | None = None
-        for item in response.output or ():
-            if isinstance(item, ImageGenerationCall):
+        image_call: ImageGenerationResult | None = None
+        output_items = response.get("output")
+        if isinstance(output_items, list):
+            for item in output_items:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") != "image_generation_call" and "result" not in item:
+                    continue
+                result = item.get("result")
+                if result is not None and not isinstance(result, str):
+                    result = str(result)
+                candidate = ImageGenerationResult(
+                    result=result,
+                    output_format=(
+                        str(item.get("output_format")) if item.get("output_format") else None
+                    ),
+                    size=str(item.get("size")) if item.get("size") else None,
+                    revised_prompt=(
+                        str(item.get("revised_prompt")) if item.get("revised_prompt") else None
+                    ),
+                )
                 if image_call is None or image_call.result is None:
-                    image_call = item
-                else:
-                    item.result = None
+                    image_call = candidate
 
         if image_call is None and text_output is None:
             raise HomeAssistantError(

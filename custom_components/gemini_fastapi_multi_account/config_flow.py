@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import re
 
-import openai
-import voluptuous as vol
+import probatio as vol
 
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -33,7 +32,7 @@ from homeassistant.helpers.selector import (
     TemplateSelector,
 )
 
-from .api import create_client, normalize_base_url
+from .api import ApiClientError, create_client, normalize_base_url
 from .const import (
     DOMAIN,
     LOGGER,
@@ -82,22 +81,14 @@ class LocalAiConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
                 try:
                     client = create_client(self.hass, user_input)
-                    await client.models.list(timeout=MODEL_LIST_TIMEOUT)
-                except openai.AuthenticationError:
-                    errors["base"] = "invalid_auth"
-                except openai.APIStatusError as err:
+                    await client.list_models(timeout=MODEL_LIST_TIMEOUT)
+                except ApiClientError as err:
+                    LOGGER.debug("Gemini FastAPI validation failed: %s", err)
                     errors["base"] = (
                         "invalid_auth"
                         if err.status_code in (401, 403)
                         else "cannot_connect"
                     )
-                except (
-                    openai.APIConnectionError,
-                    openai.APITimeoutError,
-                    openai.OpenAIError,
-                ) as err:
-                    LOGGER.debug("Gemini FastAPI validation failed: %s", err)
-                    errors["base"] = "cannot_connect"
                 except Exception:
                     LOGGER.exception("Unexpected exception while validating Gemini FastAPI")
                     errors["base"] = "unknown"
@@ -159,17 +150,14 @@ class ConversationFlowHandler(LocalAiSubentryFlowHandler):
         client = self._get_entry().runtime_data
 
         try:
-            response = await client.with_options(timeout=MODEL_LIST_TIMEOUT).models.list()
+            model_ids = await client.list_models(timeout=MODEL_LIST_TIMEOUT)
             downloaded_models: list[SelectOptionDict] = [
-                SelectOptionDict(
-                    label=model.id,
-                    value=model.id,
-                )
-                for model in response.data
+                SelectOptionDict(label=model_id, value=model_id)
+                for model_id in model_ids
             ]
             LOGGER.debug("Found models: %s", downloaded_models)
-        except openai.OpenAIError as err:
-            LOGGER.debug("OpenAI-compatible API error retrieving models: %s", err)
+        except ApiClientError as err:
+            LOGGER.debug("Gemini FastAPI API error retrieving models: %s", err)
             downloaded_models = []
         except Exception as err:
             LOGGER.exception("Unexpected exception retrieving models: %s", err)
@@ -309,16 +297,13 @@ class AITaskDataFlowHandler(LocalAiSubentryFlowHandler):
             options = {}
         try:
             client = self._get_entry().runtime_data
-            response = await client.with_options(timeout=MODEL_LIST_TIMEOUT).models.list()
+            model_ids = await client.list_models(timeout=MODEL_LIST_TIMEOUT)
             downloaded_models: list[SelectOptionDict] = [
-                SelectOptionDict(
-                    label=model.id,
-                    value=model.id,
-                )
-                for model in response.data
+                SelectOptionDict(label=model_id, value=model_id)
+                for model_id in model_ids
             ]
-        except openai.OpenAIError as err:
-            LOGGER.debug("OpenAI-compatible API error retrieving models: %s", err)
+        except ApiClientError as err:
+            LOGGER.debug("Gemini FastAPI API error retrieving models: %s", err)
             downloaded_models = []
         except Exception as err:
             LOGGER.exception("Unexpected exception retrieving models: %s", err)

@@ -7,11 +7,11 @@
 
 ## Yêu cầu
 
-- Home Assistant 2025.7.0 trở lên; khuyến nghị Home Assistant bản ổn định mới nhất.
+- Home Assistant 2026.10.0 trở lên; tối ưu theo API của Home Assistant 2026.10.
 - HACS 2.0.5 trở lên.
 - Container `gemini-fastapi-multi-account` đang hoạt động và truy cập được từ Home Assistant.
 
-> Nếu bạn đang cài `Local OpenAI LLM` cũ, nên gỡ/disable bản cũ trước khi cài bản này để tránh hai integration cùng tải các phiên bản dependency OpenAI khác nhau.
+> Từ v1.3.0 integration không còn phụ thuộc OpenAI Python SDK; giao tiếp với Gemini FastAPI bằng HTTP trực tiếp qua HTTPX session dùng chung của Home Assistant.
 
 ## URL nên dùng
 
@@ -66,9 +66,11 @@ https://github.com/khaisilk1910/gemini-fastapi-multi-account-hacs
 
 Việc kiểm tra `/v1/models` chỉ diễn ra khi cấu hình/mở form chọn model, không chạy trong quá trình boot Home Assistant.
 
-### Tương thích Home Assistant / OpenAI SDK
+### Tương thích Home Assistant 2026.10+
 
-Từ version **1.2.1**, integration khai báo `openai>=2.45.0,<4`. Mục tiêu là để Home Assistant Core tự áp dụng phiên bản OpenAI SDK mà chính Core đang khóa (ví dụ Home Assistant 2026.10 dùng OpenAI SDK 3.x), tránh lỗi `Requirements ... not found` do custom integration ép một major version không tương thích.
+Từ version **1.3.0**, integration **không còn phụ thuộc `openai` Python package**. Backend Gemini FastAPI đã cung cấp API OpenAI-compatible nên integration gọi trực tiếp `/v1/models`, `/v1/chat/completions` và `/v1/responses` bằng HTTPX client dùng chung của Home Assistant. Điều này loại bỏ xung đột package constraint khi Home Assistant nâng OpenAI SDK.
+
+Bản 1.3.0 đặt Home Assistant tối thiểu là **2026.10.0** và dùng API hiện hành của Home Assistant gồm `ConfigEntry.runtime_data`, `ConversationEntity` + `ChatLog`, config subentries và `AITaskEntity`.
 
 
 ## Tải lại integration

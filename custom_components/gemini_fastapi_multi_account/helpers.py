@@ -4,62 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import importlib
 import mimetypes
 import re
 import unicodedata
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Any, Literal
 
 import orjson
+import probatio as vol
+from probatio import to_openapi as convert
+from pylatexenc.latex2text import LatexNodes2Text
+
 from homeassistant.components import conversation
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import llm
-from openai import AsyncStream
-from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionChunk,
-    ChatCompletionContentPartImageParam,
-    ChatCompletionContentPartInputAudioParam,
-    ChatCompletionContentPartParam,
-    ChatCompletionContentPartRefusalParam,
-    ChatCompletionContentPartTextParam,
-    ChatCompletionFunctionToolParam,
-    ChatCompletionMessageFunctionToolCallParam,
-    ChatCompletionMessageParam,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionToolMessageParam,
-    ChatCompletionUserMessageParam,
-)
-from openai.types.chat.chat_completion_content_part_param import File, FileFile
-from openai.types.chat.chat_completion_message_function_tool_call_param import Function
-from openai.types.responses import (
-    EasyInputMessageParam,
-    ResponseFunctionToolCallParam,
-    ResponseInputContentParam,
-    ResponseInputImageParam,
-    ResponseInputItemParam,
-    ResponseInputTextParam,
-)
-from openai.types.responses.response_input_item_param import FunctionCallOutput
-from openai.types.shared_params import FunctionDefinition
-from openai.types.shared_params.response_format_json_schema import JSONSchema
-
-if TYPE_CHECKING:
-    import voluptuous as vol
-else:
-    try:
-        import probatio as vol
-    except ImportError:
-        import voluptuous as vol
-
-try:
-    from probatio import to_openapi as convert
-except ImportError:
-    convert = importlib.import_module("voluptuous_openapi").convert
-
-from pylatexenc.latex2text import LatexNodes2Text
 
 from .const import (
     CURRENCY_PATTERN,
@@ -76,10 +35,9 @@ from .const import (
 )
 
 
-class AssistantMessageWithReasoning(ChatCompletionAssistantMessageParam, total=False):
-    """Chat completion assistant message parameter with reasoning content."""
-
-    reasoning_content: str
+ChatCompletionMessage = dict[str, Any]
+ChatCompletionContentPart = dict[str, Any]
+ResponseInputItem = dict[str, Any]
 
 
 _EMOJI_PATTERN = re.compile(
@@ -418,9 +376,9 @@ def _adjust_schema(schema: dict[str, object]) -> None:
 
 def _format_structured_output(
     name: str, schema: vol.Schema, llm_api: llm.APIInstance | None
-) -> JSONSchema:
+) -> dict[str, Any]:
     """Format the schema to be compatible with OpenRouter API."""
-    result: JSONSchema = {
+    result: dict[str, Any] = {
         "name": name.strip(),
         "strict": True,
     }
@@ -441,7 +399,7 @@ def _format_structured_output(
 def _format_tool(
     tool: llm.Tool,
     custom_serializer: Callable[[object], object] | None,
-) -> ChatCompletionFunctionToolParam:
+) -> dict[str, Any]:
     """Format tool specification."""
     raw_parameters = convert(tool.parameters, custom_serializer=custom_serializer)
     cleaned_parameters = _clean_and_sort_schema(raw_parameters)
@@ -453,39 +411,39 @@ def _format_tool(
         if (tool.description and tool.description.strip())
         else "A callable function"
     )
-    tool_spec = FunctionDefinition(
-        name=tool.name.strip(),
-        parameters=parameters,
-        description=description,
-    )
-    return ChatCompletionFunctionToolParam(type="function", function=tool_spec)
+    tool_spec = {
+        "name": tool.name.strip(),
+        "parameters": parameters,
+        "description": description,
+    }
+    return {"type": "function", "function": tool_spec}
 
 
 def _convert_completion_content_part_to_response_input(
-    part: ChatCompletionContentPartParam | ChatCompletionContentPartRefusalParam,
-) -> ResponseInputContentParam:
+    part: ChatCompletionContentPart,
+) -> dict[str, Any]:
     """Convert a chat completion content part into responses API format."""
     if part["type"] == "text":
-        return ResponseInputTextParam(type="input_text", text=part["text"].strip())
+        return {"type": "input_text", "text": str(part.get("text") or "").strip()}
     if part["type"] == "image_url":
         image_url = part["image_url"]["url"].strip()
         detail = part["image_url"].get("detail")
         image_detail: Literal["auto", "low", "high"] = (
             detail if detail in ("auto", "low", "high") else "auto"
         )
-        return ResponseInputImageParam(
-            type="input_image",
-            image_url=image_url,
-            detail=image_detail,
-        )
-    return ResponseInputTextParam(type="input_text", text="")
+        return {
+            "type": "input_image",
+            "image_url": image_url,
+            "detail": image_detail,
+        }
+    return {"type": "input_text", "text": ""}
 
 
 def _convert_completion_messages_to_response_input(
-    messages: list[ChatCompletionMessageParam],
-) -> list[ResponseInputItemParam]:
+    messages: list[ChatCompletionMessage],
+) -> list[ResponseInputItem]:
     """Convert chat completion style messages into responses API format."""
-    response_messages: list[ResponseInputItemParam] = []
+    response_messages: list[ResponseInputItem] = []
     for message in messages:
         if message["role"] == "system":
             raw_content = message.get("content") or ""
@@ -493,11 +451,7 @@ def _convert_completion_messages_to_response_input(
                 raw_content if isinstance(raw_content, str) else str(raw_content)
             ).strip()
             response_messages.append(
-                EasyInputMessageParam(
-                    type="message",
-                    role="developer",
-                    content=content_str,
-                )
+                {"type": "message", "role": "developer", "content": content_str}
             )
             continue
 
@@ -505,22 +459,22 @@ def _convert_completion_messages_to_response_input(
             content = message.get("content")
             if isinstance(content, list):
                 response_messages.append(
-                    EasyInputMessageParam(
-                        type="message",
-                        role="user",
-                        content=[
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [
                             _convert_completion_content_part_to_response_input(part)
                             for part in content
                         ],
-                    )
+                    }
                 )
             else:
                 response_messages.append(
-                    EasyInputMessageParam(
-                        type="message",
-                        role="user",
-                        content=str(content).strip() if content is not None else "",
-                    )
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": str(content).strip() if content is not None else "",
+                    }
                 )
             continue
 
@@ -530,11 +484,7 @@ def _convert_completion_messages_to_response_input(
                 raw_content if isinstance(raw_content, str) else str(raw_content)
             ).strip()
             response_messages.append(
-                EasyInputMessageParam(
-                    type="message",
-                    role="assistant",
-                    content=content_str,
-                )
+                {"type": "message", "role": "assistant", "content": content_str}
             )
             if tool_calls := message.get("tool_calls"):
                 for tool_call in tool_calls:
@@ -552,12 +502,12 @@ def _convert_completion_messages_to_response_input(
                             except orjson.JSONDecodeError:
                                 arguments_str = raw_args.strip()
                         response_messages.append(
-                            ResponseFunctionToolCallParam(
-                                type="function_call",
-                                name=fn["name"].strip(),
-                                arguments=arguments_str,
-                                call_id=tool_call["id"].strip(),
-                            )
+                            {
+                                "type": "function_call",
+                                "name": str(fn["name"]).strip(),
+                                "arguments": arguments_str,
+                                "call_id": str(tool_call["id"]).strip(),
+                            }
                         )
             continue
 
@@ -573,11 +523,11 @@ def _convert_completion_messages_to_response_input(
             except orjson.JSONDecodeError:
                 output_str = output_str.strip()
             response_messages.append(
-                FunctionCallOutput(
-                    type="function_call_output",
-                    call_id=str(message["tool_call_id"]).strip(),
-                    output=output_str,
-                )
+                {
+                    "type": "function_call_output",
+                    "call_id": str(message["tool_call_id"]).strip(),
+                    "output": output_str,
+                }
             )
 
     return response_messages
@@ -593,26 +543,26 @@ def b64_file(file_path: Path) -> str:
 async def _convert_content_to_chat_message(
     content: object,
     model: str,
-) -> ChatCompletionMessageParam | None:
+) -> ChatCompletionMessage | None:
     """Convert any ChatLog content to ChatCompletion message format."""
     if isinstance(content, conversation.ToolResultContent):
-        return ChatCompletionToolMessageParam(
-            role="tool",
-            tool_call_id=content.tool_call_id.strip(),
-            content=orjson.dumps(
-                _clean_json_data(content.tool_result),
+        return {
+            "role": "tool",
+            "tool_call_id": content.tool_call_id.strip(),
+            "content": orjson.dumps(
+                _clean_json_data(content.result.data),
                 option=orjson.OPT_SORT_KEYS,
             ).decode("utf-8"),
-        )
+        }
 
     if isinstance(content, conversation.SystemContent):
-        return ChatCompletionSystemMessageParam(
-            role="system",
-            content=str(content.content).strip() if content.content is not None else "",
-        )
+        return {
+            "role": "system",
+            "content": str(content.content).strip() if content.content is not None else "",
+        }
 
     if isinstance(content, conversation.UserContent):
-        content_parts: list[ChatCompletionContentPartParam] = []
+        content_parts: list[ChatCompletionContentPart] = []
 
         if content.attachments:
             for attachment in content.attachments:
@@ -639,12 +589,10 @@ async def _convert_content_to_chat_message(
 
                 if mime_type.startswith("image/"):
                     content_parts.append(
-                        ChatCompletionContentPartImageParam(
-                            type="image_url",
-                            image_url={
-                                "url": f"data:{mime_type};base64,{base64_file}",
-                            },
-                        )
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime_type};base64,{base64_file}"},
+                        }
                     )
                     continue
 
@@ -655,56 +603,53 @@ async def _convert_content_to_chat_message(
                         audio_fmt = "wav" if ext == ".wav" else "mp3"
                     if audio_fmt is not None:
                         content_parts.append(
-                            ChatCompletionContentPartInputAudioParam(
-                                type="input_audio",
-                                input_audio={"format": audio_fmt, "data": base64_file},
-                            )
+                            {
+                                "type": "input_audio",
+                                "input_audio": {"format": audio_fmt, "data": base64_file},
+                            }
                         )
                         continue
 
                 content_parts.append(
-                    File(
-                        type="file",
-                        file=FileFile(
-                            file_data=base64_file,
-                            filename=attachment.path.name,
-                        ),
-                    )
+                    {
+                        "type": "file",
+                        "file": {
+                            "file_data": base64_file,
+                            "filename": attachment.path.name,
+                        },
+                    }
                 )
 
         if content.content:
             content_parts.append(
-                ChatCompletionContentPartTextParam(
-                    type="text",
-                    text=str(content.content).strip(),
-                )
+                {"type": "text", "text": str(content.content).strip()}
             )
 
         if content_parts:
-            return ChatCompletionUserMessageParam(role="user", content=content_parts)
+            return {"role": "user", "content": content_parts}
         return None
 
     if isinstance(content, conversation.AssistantContent):
-        param = AssistantMessageWithReasoning(
-            role="assistant",
-            content=str(content.content).strip() if content.content is not None else "",
-        )
+        param: ChatCompletionMessage = {
+            "role": "assistant",
+            "content": str(content.content).strip() if content.content is not None else "",
+        }
         if (thinking := getattr(content, "thinking_content", None)) is not None:
             param["reasoning_content"] = str(thinking).strip()
 
         if content.tool_calls:
             param["tool_calls"] = [
-                ChatCompletionMessageFunctionToolCallParam(
-                    type="function",
-                    id=tool_call.id.strip(),
-                    function=Function(
-                        arguments=orjson.dumps(
+                {
+                    "type": "function",
+                    "id": tool_call.id.strip(),
+                    "function": {
+                        "arguments": orjson.dumps(
                             _clean_json_data(tool_call.tool_args),
                             option=orjson.OPT_SORT_KEYS,
                         ).decode("utf-8"),
-                        name=tool_call.tool_name.strip(),
-                    ),
-                )
+                        "name": tool_call.tool_name.strip(),
+                    },
+                }
                 for tool_call in content.tool_calls
             ]
         return param
@@ -729,7 +674,7 @@ def _decode_tool_arguments(arguments: str) -> dict[str, object]:
 
 
 async def _transform_stream(
-    stream: AsyncStream[ChatCompletionChunk],
+    stream: AsyncIterator[dict[str, Any]],
     strip_emojis: bool,
     strip_emphasis: bool,
     strip_latex: bool,
@@ -746,16 +691,38 @@ async def _transform_stream(
     async for event in stream:
         chunk: conversation.AssistantContentDeltaDict = {}
 
-        if not event.choices:
+        choices = event.get("choices")
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
             continue
 
-        choice = event.choices[0]
-        delta = choice.delta
+        choice = choices[0]
+        delta = choice.get("delta")
+        if not isinstance(delta, dict):
+            delta = {}
 
-        if (reasoning := getattr(delta, "reasoning_content", None)) is not None:
-            chunk["thinking_content"] = reasoning
+        if (reasoning := delta.get("reasoning_content")) is not None:
+            chunk["thinking_content"] = str(reasoning)
 
-        if choice.finish_reason and pending_tool_calls:
+        tool_calls = delta.get("tool_calls")
+        if isinstance(tool_calls, list):
+            for tool_call in tool_calls:
+                if not isinstance(tool_call, dict):
+                    continue
+                raw_index = tool_call.get("index", 0)
+                index = raw_index if isinstance(raw_index, int) and raw_index >= 0 else 0
+                while len(pending_tool_calls) <= index:
+                    pending_tool_calls.append({"name": "", "args": ""})
+                function = tool_call.get("function")
+                if isinstance(function, dict):
+                    if function.get("name"):
+                        pending_tool_calls[index]["name"] += str(function["name"])
+                    if function.get("arguments"):
+                        pending_tool_calls[index]["args"] += str(function["arguments"])
+
+        # Some OpenAI-compatible servers include the last tool-call fragment in
+        # the same chunk that carries finish_reason. Accumulate delta first, then
+        # emit the completed tool call so the final argument fragment is not lost.
+        if choice.get("finish_reason") and pending_tool_calls:
             chunk["tool_calls"] = [
                 llm.ToolInput(
                     tool_name=tool_call["name"].strip(),
@@ -768,19 +735,9 @@ async def _transform_stream(
             ]
             pending_tool_calls = []
 
-        if delta.tool_calls:
-            for tool_call in delta.tool_calls:
-                index = tool_call.index
-                while len(pending_tool_calls) <= index:
-                    pending_tool_calls.append({"name": "", "args": ""})
-                if tool_call.function:
-                    if tool_call.function.name:
-                        pending_tool_calls[index]["name"] += tool_call.function.name
-                    if tool_call.function.arguments:
-                        pending_tool_calls[index]["args"] += tool_call.function.arguments
-
-        if delta.content:
-            text = delta.content
+        content_delta = delta.get("content")
+        if content_delta:
+            text = str(content_delta)
 
             if not seen_visible and not in_think:
                 prefix_buffer += text
