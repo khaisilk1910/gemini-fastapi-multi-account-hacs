@@ -123,6 +123,34 @@ class LocalAiConfigFlow(ConfigFlow, domain=DOMAIN):
 class LocalAiSubentryFlowHandler(ConfigSubentryFlow):
     """Handle subentry flow for Gemini FastAPI Multi-Account."""
 
+    async def get_model_options(
+        self, options: dict[str, object]
+    ) -> tuple[list[SelectOptionDict], bool]:
+        """Load live choices, or fall back without erasing the saved model.
+
+        A failed or empty /v1/models endpoint must not leave the Home Assistant
+        selector with zero entries, especially when reconfiguring an agent.
+        Returns (selector options, has_live_models).
+        """
+        model_ids: list[str] = []
+        try:
+            client = self._get_entry().runtime_data
+            model_ids = await client.list_models(timeout=MODEL_LIST_TIMEOUT)
+        except ApiClientError as err:
+            LOGGER.warning("Could not fetch Gemini FastAPI models: %s", err)
+        except Exception:
+            LOGGER.exception("Unexpected error retrieving Gemini FastAPI models")
+
+        if not model_ids:
+            LOGGER.warning(
+                "Gemini FastAPI model list is empty/unavailable; showing fallback "
+                "candidates. Check GET /v1/models and the gateway account status."
+            )
+        selected = options.get(CONF_MODEL)
+        selected_model = str(selected) if selected is not None else None
+        choices = model_selector_options(model_ids, selected_model)
+        return [SelectOptionDict(**choice) for choice in choices], bool(model_ids)
+
     @staticmethod
     def strip_model_pathing(model_name: str) -> str:
         """Strip file path and .gguf extension from model name."""
@@ -148,26 +176,17 @@ class ConversationFlowHandler(LocalAiSubentryFlowHandler):
         if options is None:
             options = {}
         llm_apis = self.get_llm_apis()
-        client = self._get_entry().runtime_data
+        downloaded_models, has_live_models = await self.get_model_options(options)
+        LOGGER.debug("Available model options: %s", downloaded_models)
 
-        try:
-            model_ids = await client.list_models(timeout=MODEL_LIST_TIMEOUT)
-            downloaded_models: list[SelectOptionDict] = [
-                SelectOptionDict(**option) for option in model_selector_options(model_ids)
-            ]
-            LOGGER.debug("Found models: %s", downloaded_models)
-        except ApiClientError as err:
-            LOGGER.debug("Gemini FastAPI API error retrieving models: %s", err)
-            downloaded_models = []
-        except Exception as err:
-            LOGGER.exception("Unexpected exception retrieving models: %s", err)
-            downloaded_models = []
-
-        default_model: str = "Local"
         if raw_model := options.get(CONF_MODEL):
             default_model = str(raw_model)
-        elif downloaded_models:
+        elif has_live_models:
             default_model = downloaded_models[0]["value"]
+        else:
+            # Do not default new agents to an unverified Auto alias while
+            # /v1/models is offline. The user can still choose it explicitly.
+            default_model = "gemini-flash"
 
         default_title = self.strip_model_pathing(default_model)
         default_name: str = f"{default_title} AI Agent"
@@ -295,24 +314,14 @@ class AITaskDataFlowHandler(LocalAiSubentryFlowHandler):
         """Return the configuration schema for AI task options."""
         if options is None:
             options = {}
-        try:
-            client = self._get_entry().runtime_data
-            model_ids = await client.list_models(timeout=MODEL_LIST_TIMEOUT)
-            downloaded_models: list[SelectOptionDict] = [
-                SelectOptionDict(**option) for option in model_selector_options(model_ids)
-            ]
-        except ApiClientError as err:
-            LOGGER.debug("Gemini FastAPI API error retrieving models: %s", err)
-            downloaded_models = []
-        except Exception as err:
-            LOGGER.exception("Unexpected exception retrieving models: %s", err)
-            downloaded_models = []
+        downloaded_models, has_live_models = await self.get_model_options(options)
 
-        default_model: str = "Local"
         if raw_model := options.get(CONF_MODEL):
             default_model = str(raw_model)
-        elif downloaded_models:
+        elif has_live_models:
             default_model = downloaded_models[0]["value"]
+        else:
+            default_model = "gemini-flash"
 
         default_title = self.strip_model_pathing(default_model)
         default_name: str = f"{default_title} AI Task"
