@@ -122,3 +122,15 @@ The native HTTPX client raises errors if the backend returns a stream-level erro
 frame or closes its SSE stream before `[DONE]`. HTTP health/model requests and
 initialization remain independent: Home Assistant starts without contacting the
 Gemini gateway.
+
+
+### Gemini Auto (October 2026)
+
+When the paired FastAPI service advertises `gemini-auto` in `GET /v1/models`,
+the Conversation and AI Task model pickers show **Gemini Auto (Google routing)**
+and make it the first option for new subentries. Existing model settings are not
+overwritten. Set **Auto model selection** in each Gemini Web account's
+**Settings → Usage limits**. This integration forwards `gemini-auto` without
+local prompt-based model classification. Exact Google auto-routing is available
+only when the account and upstream `gemini-webapi` permit it; otherwise it uses
+the account's default model.

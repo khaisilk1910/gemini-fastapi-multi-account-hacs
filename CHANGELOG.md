@@ -1,3 +1,9 @@
+## 1.3.2 (2026-10-14)
+
+- Show `gemini-auto` as "Gemini Auto (Google routing)" in the Conversation and AI Task model selectors.
+- Prefer `gemini-auto` for new subentries when the compatible FastAPI backend advertises it.
+- Keep existing saved model selections untouched; backend decides how account defaults are routed.
+
 ## 1.3.1 (2026-10-08)
 
 - Fix SSE error propagation after HTTP 200 and detect truncated streams.

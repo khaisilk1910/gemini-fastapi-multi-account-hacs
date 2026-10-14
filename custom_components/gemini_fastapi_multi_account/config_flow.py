@@ -33,6 +33,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .api import ApiClientError, create_client, normalize_base_url
+from .model_selection import model_selector_options
 from .const import (
     DOMAIN,
     LOGGER,
@@ -152,8 +153,7 @@ class ConversationFlowHandler(LocalAiSubentryFlowHandler):
         try:
             model_ids = await client.list_models(timeout=MODEL_LIST_TIMEOUT)
             downloaded_models: list[SelectOptionDict] = [
-                SelectOptionDict(label=model_id, value=model_id)
-                for model_id in model_ids
+                SelectOptionDict(**option) for option in model_selector_options(model_ids)
             ]
             LOGGER.debug("Found models: %s", downloaded_models)
         except ApiClientError as err:
@@ -299,8 +299,7 @@ class AITaskDataFlowHandler(LocalAiSubentryFlowHandler):
             client = self._get_entry().runtime_data
             model_ids = await client.list_models(timeout=MODEL_LIST_TIMEOUT)
             downloaded_models: list[SelectOptionDict] = [
-                SelectOptionDict(label=model_id, value=model_id)
-                for model_id in model_ids
+                SelectOptionDict(**option) for option in model_selector_options(model_ids)
             ]
         except ApiClientError as err:
             LOGGER.debug("Gemini FastAPI API error retrieving models: %s", err)
